@@ -81,18 +81,18 @@ API documentation is available at `/api-docs` when the server is running.
 - ✅ Database schema with Prisma
 - ✅ Core middleware (error handling, validation, image upload)
 - ✅ Board management API endpoints
-- ⬜ Thread creation and management
+- ✅ Thread creation and management
 - ⬜ Reply creation and management
-- ⬜ Image processing for threads and replies
+- ✅ Image processing for threads
+- ⬜ Image processing for replies
 - ⬜ Authentication for admin actions
 
 ## Next Steps
 
-1. Implement thread creation and management endpoints
-2. Implement reply creation and management endpoints
-3. Add authentication for admin actions
-4. Add tests for API endpoints
-5. Implement frontend application
+1. Implement reply creation and management endpoints
+2. Add authentication for admin actions
+3. Add tests for API endpoints
+4. Implement frontend application
 
 ## License
 

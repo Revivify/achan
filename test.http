@@ -1,8 +1,11 @@
 ### List all boards
 GET http://localhost:3000/api/v1/boards
 
-### Get details of a specific board with short_name "g" and first page
-GET http://localhost:3000/api/v1/boards/g?page=1&limit=15
+### Get details of a specific board with short_name "g"
+GET http://localhost:3000/api/v1/boards/g
+
+### List threads for board "g" with pagination
+GET http://localhost:3000/api/v1/boards/g/threads?page=1&limit=15
 
 ### Create a new board (replace placeholders with actual data)
 POST http://localhost:3000/api/v1/boards
@@ -71,6 +74,9 @@ Content-Type: application/json
 {
   "deletion_password": "password123"
 }
+
+### Get a thread with id 123 and all its replies
+GET http://localhost:3000/api/v1/boards/g/threads/123
 
 ### Get replies for a thread 123
 GET http://localhost:3000/api/v1/boards/g/threads/123/replies?page=1&limit=10
