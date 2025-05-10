@@ -1,0 +1,87 @@
+### List all boards
+GET http://localhost:3000/api/v1/boards
+
+### Get details of a specific board with short_name "g" and first page
+GET http://localhost:3000/api/v1/boards/g?page=1&limit=15
+
+### Create a new board (replace placeholders with actual data)
+POST http://localhost:3000/api/v1/boards
+
+Content-Type: application/json
+{
+  "shortName": "g",
+  "name": "My New Board",
+  "description": "A description for my new board"
+}
+
+### Create a new thread in board "g" with image upload
+POST http://localhost:3000/api/v1/boards/g/threads
+Content-Type: multipart/form-data; boundary=-----
+
+--boundary
+Content-Disposition: form-data; name="comment"
+
+Check out my new setup!
+--boundary
+Content-Disposition: form-data; name="subject"
+
+My new setup
+--boundary
+Content-Disposition: form-data; name="poster_name"
+
+John Doe
+--boundary
+Content-Disposition: form-data; name="deletion_password"
+
+password123
+--boundary
+Content-Disposition: form-data; name="image"; filename="setup.jpg"
+Content-Type: image/jpeg
+
+<Your image file content here>
+--boundary--
+
+### Reply to a thread with id 123 in board "g"
+POST http://localhost:3000/api/v1/boards/g/threads/123/replies
+Content-Type: multipart/form-data; boundary=-----
+
+--boundary
+Content-Disposition: form-data; name="comment"
+
+Nice build! What GPU is that?
+--boundary
+Content-Disposition: form-data; name="poster_name"
+
+Anonymous
+--boundary
+Content-Disposition: form-data; name="deletion_password"
+
+password456
+--boundary
+Content-Disposition: form-data; name="image"; filename="gpu.png"
+Content-Type: image/png
+
+<Your image file content here>
+--boundary--
+
+### Delete a thread with id 123 (replace with actual password)
+DELETE http://localhost:3000/api/v1/boards/g/threads/123
+Content-Type: application/json
+
+{
+  "deletion_password": "password123"
+}
+
+### Get replies for a thread 123
+GET http://localhost:3000/api/v1/boards/g/threads/123/replies?page=1&limit=10
+
+### Fetch a specific reply with id 456
+GET http://localhost:3000/api/v1/boards/g/replies/456
+
+### Delete a reply with id 456
+DELETE http://localhost:3000/api/v1/boards/g/replies/456
+Content-Type: application/json
+
+{
+  "deletion_password": "password456"
+}

@@ -1,0 +1,583 @@
+openapi: 3.0.0
+info:
+  title: Image Board API
+  version: v1.0.0
+  description: API for an image board application.
+servers:
+  - url: http://localhost:3000/api/v1 # Replace with your actual server URL
+    description: Development server
+
+components:
+  schemas:
+    Board:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          readOnly: true
+        short_name:
+          type: string
+          example: "g"
+        name:
+          type: string
+          example: "Technology"
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        thread_count: # Calculated field, might be added in response
+          type: integer
+          example: 150
+          readOnly: true
+
+
+    Thread:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          readOnly: true
+        board_short_name: # Denormalized for convenience or fetched via join
+          type: string
+          example: "g"
+        subject:
+          type: string
+          nullable: true
+          example: "My new setup"
+        comment:
+          type: string
+          example: "Check out my awesome new PC build!"
+        poster_name:
+          type: string
+          default: "Anonymous"
+        image_url: # URL to the full image
+          type: string
+          format: url
+          example: "/uploads/images/abc123xyz.jpg"
+        thumbnail_url: # URL to the thumbnail
+          type: string
+          format: url
+          example: "/uploads/thumbnails/abc123xyz_thumb.jpg"
+        image_original_filename:
+          type: string
+          example: "setup.jpg"
+        image_filesize_bytes:
+          type: integer
+          example: 512000
+        image_width:
+          type: integer
+          nullable: true
+        image_height:
+          type: integer
+          nullable: true
+        reply_count: # Calculated field
+          type: integer
+          example: 25
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_bumped_at:
+          type: string
+          format: date-time
+          readOnly: true
+        replies: # Included when fetching a single thread
+          type: array
+          items:
+            $ref: '#/components/schemas/Reply'
+
+    Reply:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          readOnly: true
+        thread_id:
+          type: integer
+          format: int32
+        parent_reply_id: # For nested replies
+          type: integer
+          format: int32
+          nullable: true
+        comment:
+          type: string
+          example: "Nice build! What GPU is that?"
+        poster_name:
+          type: string
+          default: "Anonymous"
+        image_url:
+          type: string
+          format: url
+          nullable: true
+          example: "/uploads/images/def456uvw.png"
+        thumbnail_url:
+          type: string
+          format: url
+          nullable: true
+          example: "/uploads/thumbnails/def456uvw_thumb.png"
+        image_original_filename:
+          type: string
+          nullable: true
+        image_filesize_bytes:
+          type: integer
+          nullable: true
+        image_width:
+          type: integer
+          nullable: true
+        image_height:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        
+    NewBoard:
+      type: object
+      required:
+        - short_name
+        - name
+      properties:
+        short_name:
+          type: string
+          minLength: 1
+          maxLength: 10
+          pattern: "^[a-zA-Z0-9]+$"
+          example: "diy"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Do It Yourself"
+        description:
+          type: string
+          nullable: true
+          example: "Board for DIY projects"
+
+    NewThread: # For POST requests, image handled as multipart/form-data
+      type: object
+      required:
+        - comment
+        - image # This represents the file upload part
+      properties:
+        subject:
+          type: string
+          maxLength: 255
+          nullable: true
+        comment:
+          type: string
+          minLength: 1
+        poster_name:
+          type: string
+          maxLength: 50
+          nullable: true
+        deletion_password: # Plain text password for deletion
+          type: string
+          nullable: true
+          description: "Password to delete this thread later."
+        image: # This property is used by OpenAPI to denote a file upload
+          type: string
+          format: binary # Indicates a file upload
+          description: "The image file for the thread."
+          
+    NewReply: # For POST requests, image handled as multipart/form-data if present
+      type: object
+      required:
+        - comment
+      properties:
+        comment:
+          type: string
+          minLength: 1
+        poster_name:
+          type: string
+          maxLength: 50
+          nullable: true
+        parent_reply_id:
+          type: integer
+          format: int32
+          nullable: true
+          description: "ID of the reply this is a response to (for nesting)."
+        deletion_password:
+          type: string
+          nullable: true
+          description: "Password to delete this reply later."
+        image: # Optional image for reply
+          type: string
+          format: binary
+          description: "An optional image file for the reply."
+          nullable: true
+
+    DeletionRequest:
+      type: object
+      required:
+        - deletion_password
+      properties:
+        deletion_password:
+          type: string
+          description: "The password provided when creating the post."
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details: # Optional additional details
+          type: object 
+          additionalProperties: true 
+
+  parameters:
+    BoardShortNamePath:
+      name: board_short_name
+      in: path
+      required: true
+      description: Short name of the board (e.g., "g", "b")
+      schema:
+        type: string
+    ThreadIdPath:
+      name: thread_id
+      in: path
+      required: true
+      description: ID of the thread
+      schema:
+        type: integer
+        format: int32
+    ReplyIdPath:
+      name: reply_id
+      in: path
+      required: true
+      description: ID of the reply
+      schema:
+        type: integer
+        format: int32
+    PageQuery:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LimitQuery:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        default: 10 # Default threads per page on board view
+        minimum: 1
+        maximum: 100
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Invalid request payload or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication information is missing or invalid (for admin actions)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Authenticated user does not have permission (for admin actions or wrong deletion password)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  # Security schemes if you add authentication for admin actions
+  # securitySchemes:
+  #   AdminApiKey:
+  #     type: apiKey
+  #     in: header
+  #     name: X-API-KEY
+
+paths:
+  /boards:
+    get:
+      summary: List all boards
+      tags: [Boards]
+      responses:
+        '200':
+          description: A list of boards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Board'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create a new board (Admin Only)
+      tags: [Boards]
+      # security:
+      #   - AdminApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewBoard'
+      responses:
+        '201':
+          description: Board created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /boards/{board_short_name}:
+    parameters:
+      - $ref: '#/components/parameters/BoardShortNamePath'
+    get:
+      summary: Get board details and its threads
+      tags: [Boards, Threads]
+      parameters:
+        - $ref: '#/components/parameters/PageQuery'
+        - name: limit 
+          in: query
+          description: Number of threads per page
+          schema:
+            type: integer
+            default: 15 # Catalog view typically shows more
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Board details along with a paginated list of its threads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  board:
+                    $ref: '#/components/schemas/Board'
+                  threads:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Thread' # Threads here will have limited replies shown, or just reply count
+                  pagination:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      totalThreads:
+                        type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    # PUT and DELETE for boards (Admin Only) would go here - similar to POST /boards
+
+  /boards/{board_short_name}/threads:
+    parameters:
+      - $ref: '#/components/parameters/BoardShortNamePath'
+    get:
+      summary: List threads for a board (catalog view)
+      description: Provides a paginated list of threads for a given board, ordered by last bump time.
+      tags: [Threads]
+      parameters:
+        - $ref: '#/components/parameters/PageQuery'
+        - name: limit 
+          in: query
+          description: Number of threads per page
+          schema:
+            type: integer
+            default: 15 
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: A paginated list of threads. Each thread typically includes OP info and a few recent replies.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  threads:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Thread' # These threads might include first few replies or just reply counts
+                  pagination:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      totalItems:
+                        type: integer
+        '404': # If board not found
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create a new thread
+      tags: [Threads]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NewThread'
+            encoding: # Specify encoding for multipart parts if needed, often not strictly required for simple uploads
+              image:
+                contentType: image/jpeg, image/png, image/gif # Allowed image types
+      responses:
+        '201':
+          description: Thread created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thread' # Returns the full new thread object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404': # If board not found
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /boards/{board_short_name}/threads/{thread_id}:
+    parameters:
+      - $ref: '#/components/parameters/BoardShortNamePath'
+      - $ref: '#/components/parameters/ThreadIdPath'
+    get:
+      summary: Get a specific thread and all its replies
+      tags: [Threads, Replies]
+      responses:
+        '200':
+          description: The thread with all its replies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thread' # This Thread schema would have the full 'replies' array populated
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a thread
+      tags: [Threads]
+      requestBody:
+        description: Password for deletion if not a moderator.
+        required: false # Could be optional if mod auth is used
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeletionRequest'
+      responses:
+        '204':
+          description: Thread deleted successfully
+        '400': # e.g. password required but not provided
+          $ref: '#/components/responses/BadRequest'
+        '403': # Incorrect password or no permission
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /boards/{board_short_name}/threads/{thread_id}/replies:
+    parameters:
+      - $ref: '#/components/parameters/BoardShortNamePath'
+      - $ref: '#/components/parameters/ThreadIdPath'
+    post:
+      summary: Create a new reply to a thread
+      tags: [Replies]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data: # If replies can have images
+            schema:
+              $ref: '#/components/schemas/NewReply'
+            encoding:
+              image:
+                contentType: image/jpeg, image/png, image/gif
+          # application/json: # If replies cannot have images, or image is optional and handled differently
+          #   schema:
+          #     $ref: '#/components/schemas/NewReply' # A version without the 'image: binary'
+      responses:
+        '201':
+          description: Reply created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404': # If board or thread not found
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /boards/{board_short_name}/threads/{thread_id}/replies/{reply_id}:
+    parameters:
+      - $ref: '#/components/parameters/BoardShortNamePath'
+      - $ref: '#/components/parameters/ThreadIdPath'
+      - $ref: '#/components/parameters/ReplyIdPath'
+    delete:
+      summary: Delete a reply
+      tags: [Replies]
+      requestBody:
+        description: Password for deletion if not a moderator.
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeletionRequest'
+      responses:
+        '204':
+          description: Reply deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# Example static content paths (these aren't "API" endpoints but part of the system)
+# These would typically be handled by Nginx or a dedicated file server.
+# The API would generate URLs pointing to these paths.
+# /uploads/images/{image_filename_stored}
+# /uploads/thumbnails/{thumbnail_filename_stored}

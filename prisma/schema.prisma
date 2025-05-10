@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Board {
+  id          Int      @id @default(autoincrement())
+  shortName   String   @unique @map("short_name")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  threads     Thread[]
+
+  @@map("boards")
+}
+
+model Thread {
+  id                      Int      @id @default(autoincrement())
+  boardId                 Int      @map("board_id")
+  subject                 String?
+  comment                 String
+  posterName              String   @default("Anonymous") @map("poster_name")
+  imageOriginalFilename   String   @map("image_original_filename")
+  imageFilenameStored     String   @unique @map("image_filename_stored")
+  imageMimetype           String   @map("image_mimetype")
+  imageFilesizeBytes      Int      @map("image_filesize_bytes")
+  imageWidth              Int?     @map("image_width")
+  imageHeight             Int?     @map("image_height")
+  thumbnailFilenameStored String   @unique @map("thumbnail_filename_stored")
+  createdAt               DateTime @default(now()) @map("created_at")
+  lastBumpedAt            DateTime @default(now()) @map("last_bumped_at")
+  ipAddress               String?  @map("ip_address")
+  deletionPasswordHash    String?  @map("deletion_password_hash")
+
+  board   Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  replies Reply[]
+
+  @@index([boardId, lastBumpedAt(sort: Desc)])
+  @@map("threads")
+}
+
+model Reply {
+  id                      Int       @id @default(autoincrement())
+  threadId                Int       @map("thread_id")
+  parentReplyId           Int?      @map("parent_reply_id")
+  comment                 String
+  posterName              String    @default("Anonymous") @map("poster_name")
+  imageOriginalFilename   String?   @map("image_original_filename")
+  imageFilenameStored     String?   @unique @map("image_filename_stored")
+  imageMimetype           String?   @map("image_mimetype")
+  imageFilesizeBytes      Int?      @map("image_filesize_bytes")
+  imageWidth              Int?      @map("image_width")
+  imageHeight             Int?      @map("image_height")
+  thumbnailFilenameStored String?   @unique @map("thumbnail_filename_stored")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  ipAddress               String?   @map("ip_address")
+  deletionPasswordHash    String?   @map("deletion_password_hash")
+
+  thread       Thread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parentReply  Reply?  @relation("NestedReplies", fields: [parentReplyId], references: [id], onDelete: SetNull)
+  childReplies Reply[] @relation("NestedReplies")
+
+  @@index([threadId, createdAt(sort: Asc)])
+  @@map("replies")
+}
+
+model Ban {
+  id        Int       @id @default(autoincrement())
+  ipAddress String    @unique @map("ip_address")
+  reason    String?
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("bans")
+}
+
+model Report {
+  id         Int       @id @default(autoincrement())
+  threadId   Int?      @map("thread_id")
+  replyId    Int?      @map("reply_id")
+  reason     String
+  reporterIp String?   @map("reporter_ip")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  @@map("reports")
+}
